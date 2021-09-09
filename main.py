@@ -2,6 +2,7 @@ from fastapi import FastAPI, applications
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import urllib, os, sqlalchemy, databases
+from fastapi.params import Query
 
 from sqlalchemy import engine
 from sqlalchemy.sql.expression import text
@@ -69,5 +70,27 @@ async def create_note(note: NoteIn):
     last_record_id = await database.execute(query)
     return {**note.dict(), "id": last_record_id}
     
+@app.get("/notes/", response_model=List[Note])
+async def read_notes(skip: int = 0, take: int = 20):
+    query = notes.select().offset(skip).limit(take)
+    return await database.fetch_all(query)
 
 
+@app.put("/notes/{note_id}", response_model=Note)
+async def update_note(note_id:int, payload: NoteIn):
+    query = notes.update().where(notes.c.id == note_id).values(text = payload.text, completed = payload.completed)
+    await database.execute(query)
+    return {**payload.dict(), "id": note_id}
+
+
+@app.get("/notes/{note_id}", response_model=Note)
+async def read_notes(note_id: int):
+    query = notes.select().where(notes.c.id == note_id)
+    return await database.fetch_one(query)
+
+
+@app.delete("/notes/{note_id}")
+async def delete_notes(note_id: int):
+    query = notes.delete().where(notes.c.id == note_id)
+    await database.execute(query)
+    return {"message":"Note with id: {} deleted successfully".format(note_id)}
